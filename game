@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Action Game with WASD and Camera</title>
+    <style>
+        body { margin: 0; overflow: hidden; } /* 画面いっぱいにする */
+        canvas { background: #eee; display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // 画面サイズをウィンドウいっぱいに
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // プレイヤー設定
+        const player = {
+            x: 100, y: 300, width: 40, height: 40,
+            color: "#ff4757", dy: 0, jumpPower: -18,
+            grounded: false, speed: 7
+        };
+
+        const gravity = 0.9;
+        const keys = {};
+
+        // カメラ（視点）の設定
+        const camera = {
+            x: 0,
+            y: 0
+        };
+
+        // --- ステージのデータ（広い世界） ---
+        const worldWidth = 3000; // 世界の横幅
+        const platforms = [
+            // 地面
+            {x: 0, y: canvas.height - 20, width: worldWidth, height: 20},
+            // 浮いている足場
+            {x: 300, y: canvas.height - 150, width: 200, height: 20},
+            {x: 600, y: canvas.height - 250, width: 200, height: 20},
+            {x: 1000, y: canvas.height - 150, width: 300, height: 20},
+            {x: 1500, y: canvas.height - 200, width: 100, height: 20},
+            {x: 1800, y: canvas.height - 300, width: 400, height: 20},
+            {x: 2400, y: canvas.height - 150, width: 200, height: 20},
+        ];
+
+        window.addEventListener("keydown", e => keys[e.code] = true);
+        window.addEventListener("keyup", e => keys[e.code] = false);
+
+        function update() {
+            // --- WASDで移動 ---
+            if (keys["KeyD"]) player.x += player.speed; // Dで右
+            if (keys["KeyA"]) player.x -= player.speed; // Aで左
+
+            // --- Wキーでジャンプ ---
+            if (keys["KeyW"] && player.grounded) {
+                player.dy = player.jumpPower;
+                player.grounded = false;
+            }
+
+            // 重力
+            player.dy += gravity;
+            player.y += player.dy;
+            player.grounded = false;
+
+            // --- ステージ（足場）との当たり判定 ---
+            for (let platform of platforms) {
+                if (player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y < platform.y + platform.height &&
+                    player.y + player.height > platform.y) {
+                    
+                    // 足場の上に着地したか判定
+                    if (player.dy > 0 && player.y + player.height < platform.y + platform.height / 2) {
+                        player.y = platform.y - player.height;
+                        player.dy = 0;
+                        player.grounded = true;
+                    }
+                }
+            }
+
+            // 世界の端から出ないようにする
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > worldWidth) player.x = worldWidth - player.width;
+
+            // --- カメラの更新 ---
+            // プレイヤーが画面の中央に来るようにカメラを動かす
+            camera.x = player.x - canvas.width / 2 + player.width / 2;
+            
+            // カメラが世界の端を超えないように制限
+            if (camera.x < 0) camera.x = 0;
+            if (camera.x > worldWidth - canvas.width) camera.x = worldWidth - canvas.width;
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save(); // 現在の状態を保存
+            // --- カメラの動きを反映 ---
+            // 画面全体をカメラの反対方向にずらすことで、カメラが動いているように見せる
+            ctx.translate(-camera.x, -camera.y);
+
+            // 背景の目印（遠景）
+            for(let i = 0; i < worldWidth; i += 200) {
+                ctx.fillStyle = i % 400 === 0 ? "#ddd" : "#eee";
+                ctx.fillRect(i, 0, 100, canvas.height);
+            }
+
+            // 足場の描画
+            ctx.fillStyle = "#2f3542";
+            for (let platform of platforms) {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            }
+
+            // プレイヤーの描画
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            ctx.restore(); // 保存した状態に戻す
+        }
+
+        update();
+    </script>
+</body>
+</html>
